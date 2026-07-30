@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scrabble Scorer</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <header class="app-header">
+    <h1>Scrabble Scorer</h1>
+  </header>
+
+  <!-- Notification banner for errors / messages -->
+  <div id="notification" class="notification hidden"></div>
+
+  <!-- ===================== SETUP SCREEN ===================== -->
+  <section id="setup-screen" class="screen">
+    <div class="setup-card">
+      <h2>New Game</h2>
+      <p class="setup-hint">Enter 2 to 4 player names to begin.</p>
+
+      <div id="player-inputs" class="player-inputs">
+        <input type="text" class="player-name-input" placeholder="Player 1 name" />
+        <input type="text" class="player-name-input" placeholder="Player 2 name" />
+      </div>
+
+      <div class="setup-buttons">
+        <button id="add-player-btn" type="button" class="btn btn-secondary">+ Add Player</button>
+        <button id="remove-player-btn" type="button" class="btn btn-secondary">- Remove Player</button>
+      </div>
+
+      <button id="start-game-btn" type="button" class="btn btn-primary btn-large">Start Game</button>
+    </div>
+  </section>
+
+  <!-- ===================== GAME SCREEN ===================== -->
+  <section id="game-screen" class="screen hidden">
+    <div class="game-layout">
+
+      <!-- Board area -->
+      <div class="board-area">
+        <div id="turn-banner" class="turn-banner">Player's turn</div>
+        <div id="board" class="board"></div>
+      </div>
+
+      <!-- Sidebar -->
+      <aside class="sidebar">
+
+        <!-- Scoreboard -->
+        <div class="panel scoreboard-panel">
+          <h3>Scoreboard</h3>
+          <ul id="scoreboard-list" class="scoreboard-list"></ul>
+        </div>
+
+        <!-- Turn controls -->
+        <div class="panel controls-panel">
+          <h3>Play a Word</h3>
+
+          <div class="control-row">
+            <label>Start square:</label>
+            <span id="selected-square" class="selected-square">None selected</span>
+          </div>
+
+          <div class="control-row">
+            <label>Direction:</label>
+            <button id="direction-toggle" type="button" class="btn btn-toggle">Across &rarr;</button>
+          </div>
+
+          <div class="control-row">
+            <label for="word-input">Word:</label>
+            <input type="text" id="word-input" placeholder="Type your word" autocomplete="off" />
+          </div>
+
+          <div id="blank-chip-row" class="blank-chip-row"></div>
+          <p class="blank-hint hidden" id="blank-hint">Click a letter above to mark it as a blank tile.</p>
+
+          <div class="control-row buttons-row">
+            <button id="play-word-btn" type="button" class="btn btn-primary">Play Word</button>
+            <button id="clear-selection-btn" type="button" class="btn btn-secondary">Clear</button>
+          </div>
+
+          <div id="score-breakdown" class="score-breakdown hidden"></div>
+
+          <div id="invalid-word-actions" class="invalid-word-actions hidden">
+            <p class="invalid-word-text">That word wasn't found in the dictionary.</p>
+            <button id="override-word-btn" type="button" class="btn btn-warning">Play Anyway (Override)</button>
+          </div>
+
+          <div class="control-row buttons-row secondary-actions">
+            <button id="skip-turn-btn" type="button" class="btn btn-secondary">Skip Turn</button>
+            <button id="undo-btn" type="button" class="btn btn-secondary">Undo Last Move</button>
+          </div>
+
+          <div class="control-row buttons-row secondary-actions">
+            <button id="end-game-btn" type="button" class="btn btn-danger">End Game</button>
+            <button id="new-game-btn" type="button" class="btn btn-secondary">New Game</button>
+          </div>
+        </div>
+
+        <!-- History log -->
+        <div class="panel history-panel">
+          <h3>History</h3>
+          <ul id="history-list" class="history-list"></ul>
+        </div>
+
+      </aside>
+    </div>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>
