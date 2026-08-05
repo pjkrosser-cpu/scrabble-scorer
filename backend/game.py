@@ -68,6 +68,14 @@ class ScrabbleGame:
             board_state=self.board,
         )
 
+        if validate_dictionary and self.word_set:
+            for cw in result.get("cross_words", []):
+                cw_word = cw["word"].lower()
+                if cw_word not in self.word_set:
+                    raise GameError(
+                        f"Cross-word {cw['word']!r} is not a valid word"
+                    )
+
         # Apply the new tiles to the board
         word_upper = word.upper()
         blanks_set = set(blanks)

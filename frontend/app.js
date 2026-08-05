@@ -92,6 +92,7 @@ const el = {
   historyList: document.getElementById("history-list"),
   printBoxScoreBtn: document.getElementById("print-box-score-btn"),
 
+  controlsPanel: document.getElementById("controls-panel"),
   endGamePanel: document.getElementById("end-game-panel"),
   endGameWinner: document.getElementById("end-game-winner"),
   endGamePlayers: document.getElementById("end-game-players"),
@@ -710,6 +711,7 @@ async function endGame() {
 
 function hideEndGameSummary() {
   el.endGamePanel.classList.add("hidden");
+  el.controlsPanel.classList.remove("hidden");
   el.endGameWinner.innerHTML = "";
   el.endGamePlayers.innerHTML = "";
   state.endGameSummary = null;
@@ -759,6 +761,7 @@ function renderEndGameSummary(summary) {
   });
 
   el.endGamePanel.classList.remove("hidden");
+  el.controlsPanel.classList.add("hidden");
 }
 
 function backToSetup() {
@@ -1093,6 +1096,7 @@ el.skipTurnBtn.addEventListener("click", skipTurn);
 el.undoBtn.addEventListener("click", undoLastMove);
 el.endGameBtn.addEventListener("click", endGame);
 el.newGameBtn.addEventListener("click", backToSetup);
+document.getElementById("new-game-endpanel-btn").addEventListener("click", backToSetup);
 
 el.printBoxScoreBtn.addEventListener("click", printBoxScore);
 
