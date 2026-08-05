@@ -96,6 +96,34 @@ const el = {
 };
 
 // ============================================================
+// Help tooltips (pure CSS tooltip, JS only toggles for tap/mobile)
+// ============================================================
+
+// Returns an HTML snippet for a small circular "?" icon that shows an
+// explanatory tooltip on hover (desktop) or tap (mobile/click, via the
+// delegated click handler registered below).
+function helpIconHtml(text) {
+  const escaped = String(text).replace(/"/g, "&quot;");
+  return `<span class="help-icon" tabindex="0" role="button" aria-label="Help: ${escaped}">?<span class="tooltip-text">${text}</span></span>`;
+}
+
+// Tap/click toggling for mobile (hover alone doesn't work well on touch
+// devices). Uses event delegation since help icons are re-created on
+// every render.
+document.addEventListener("click", (event) => {
+  const icon = event.target.closest(".help-icon");
+
+  document.querySelectorAll(".help-icon.show-tooltip").forEach((openIcon) => {
+    if (openIcon !== icon) openIcon.classList.remove("show-tooltip");
+  });
+
+  if (icon) {
+    icon.classList.toggle("show-tooltip");
+    event.stopPropagation();
+  }
+});
+
+// ============================================================
 // Notifications
 // ============================================================
 
@@ -376,22 +404,79 @@ function renderTurnBanner() {
 // History rendering
 // ============================================================
 
+const BINGO_TOOLTIP_TEXT =
+  "A Bingo is when you play all 7 tiles from your rack in a single turn, earning a 50-point bonus.";
+
 function renderHistory() {
   el.historyList.innerHTML = "";
 
-  state.history.forEach((entry) => {
+  // Running total per player, built up as we walk through the turns in
+  // order, so each card can show "where the score stood" at that point.
+  const runningTotals = {};
+  state.players.forEach((p) => {
+    runningTotals[p.name] = 0;
+  });
+
+  state.history.forEach((entry, index) => {
+    const turnNumber = index + 1;
+    const isSkip = entry.action === "skip" || !entry.word || entry.word === "(skipped)";
+    const breakdown = entry.scoreBreakdown || {};
+
+    runningTotals[entry.player] = (runningTotals[entry.player] || 0) + (entry.score ?? 0);
+
     const li = document.createElement("li");
+    li.className = "history-card" + (breakdown.bingoBonus ? " is-bingo" : "");
 
-    const wordSpan = document.createElement("span");
-    wordSpan.className = "history-word";
-    wordSpan.textContent = entry.word || "(skipped)";
+    const header = document.createElement("div");
+    header.className = "hc-header";
+    header.innerHTML =
+      `<span class="hc-turn">Turn ${turnNumber}</span>` +
+      `<span class="hc-player">${entry.player}</span>` +
+      `<span class="hc-total">${entry.score ?? 0} pts</span>`;
+    li.appendChild(header);
 
-    const metaSpan = document.createElement("span");
-    metaSpan.className = "history-meta";
-    metaSpan.textContent = `${entry.player} — ${entry.score ?? 0} pts`;
+    const wordRow = document.createElement("div");
+    wordRow.className = "hc-word-row";
+    if (isSkip) {
+      wordRow.innerHTML = `<span class="hc-word hc-skipped">SKIPPED</span>`;
+    } else {
+      wordRow.innerHTML =
+        `<span class="hc-word">${entry.word}</span>` +
+        `<span class="hc-main-score">${breakdown.mainWordScore ?? entry.score ?? 0} pts</span>`;
+    }
+    li.appendChild(wordRow);
 
-    li.appendChild(wordSpan);
-    li.appendChild(metaSpan);
+    if (!isSkip) {
+      const badges = document.createElement("div");
+      badges.className = "hc-badges";
+      let hasBadges = false;
+
+      (breakdown.crossWords || []).forEach((cw) => {
+        const badge = document.createElement("span");
+        badge.className = "hc-badge hc-badge-cross";
+        badge.textContent = `+${cw.score} cross (${cw.word})`;
+        badges.appendChild(badge);
+        hasBadges = true;
+      });
+
+      if (breakdown.bingoBonus) {
+        const badge = document.createElement("span");
+        badge.className = "hc-badge hc-badge-bingo";
+        badge.innerHTML = `+${breakdown.bingoBonus} BINGO${helpIconHtml(BINGO_TOOLTIP_TEXT)}`;
+        badges.appendChild(badge);
+        hasBadges = true;
+      }
+
+      if (hasBadges) {
+        li.appendChild(badges);
+      }
+    }
+
+    const runningRow = document.createElement("div");
+    runningRow.className = "hc-running";
+    runningRow.textContent = `${entry.player} total: ${runningTotals[entry.player]} pts`;
+    li.appendChild(runningRow);
+
     el.historyList.appendChild(li);
   });
 
@@ -534,7 +619,7 @@ function showScoreBreakdown(data) {
   }
 
   if (b.bingoBonus) {
-    lines.push(`Bingo bonus: +${b.bingoBonus} pts`);
+    lines.push(`Bingo${helpIconHtml(BINGO_TOOLTIP_TEXT)} bonus: +${b.bingoBonus} pts`);
   }
 
   lines.push(`<strong>Total: ${b.total ?? 0} pts</strong>`);
@@ -646,15 +731,23 @@ function renderEndGameSummary(summary) {
 
     const lines = [];
     lines.push(`<div class="egp-name">${name}</div>`);
-    lines.push(`<div class="egp-row"><span>Score before deductions</span><span>${info.score_before}</span></div>`);
+    lines.push(
+      `<div class="egp-row"><span>Score before deductions${helpIconHtml("Your total score from all words played during the game, before any end-of-game adjustments.")}</span><span>${info.score_before}</span></div>`
+    );
     lines.push(
       `<div class="egp-row"><span>Unplayed letters</span><span>${info.unplayed_letters ? info.unplayed_letters : "(none)"}</span></div>`
     );
-    lines.push(`<div class="egp-row"><span>Deduction</span><span>-${info.deduction}</span></div>`);
+    lines.push(
+      `<div class="egp-row"><span>Deduction${helpIconHtml("Points subtracted for tiles left on your rack at the end of the game. Each unplayed letter's point value is deducted from your score.")}</span><span>-${info.deduction}</span></div>`
+    );
     if (info.went_out_bonus) {
-      lines.push(`<div class="egp-row egp-bonus"><span>Went-out bonus</span><span>+${info.went_out_bonus}</span></div>`);
+      lines.push(
+        `<div class="egp-row egp-bonus"><span>Went-out bonus${helpIconHtml("If you used all your tiles (empty rack) when the game ended, you receive a bonus equal to the sum of all other players' unplayed tile values.")}</span><span>+${info.went_out_bonus}</span></div>`
+      );
     }
-    lines.push(`<div class="egp-row egp-final"><span>Final score</span><span>${info.final_score}</span></div>`);
+    lines.push(
+      `<div class="egp-row egp-final"><span>Final score${helpIconHtml("Your score after subtracting unplayed tile values and adding any went-out bonus.")}</span><span>${info.final_score}</span></div>`
+    );
 
     card.innerHTML = lines.join("");
     el.endGamePlayers.appendChild(card);
