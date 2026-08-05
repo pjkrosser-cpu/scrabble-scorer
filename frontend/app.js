@@ -43,6 +43,7 @@ const state = {
   currentPlayerIndex: 0,
   board: null,        // 15x15 array of { letter, points, isBlank } or null
   history: [],         // [{ player, word, score }]
+  endGameSummary: null, // set once the game has ended
 
   // In-progress move the player is building
   selectedRow: null,
@@ -89,6 +90,7 @@ const el = {
   newGameBtn: document.getElementById("new-game-btn"),
 
   historyList: document.getElementById("history-list"),
+  printBoxScoreBtn: document.getElementById("print-box-score-btn"),
 
   endGamePanel: document.getElementById("end-game-panel"),
   endGameWinner: document.getElementById("end-game-winner"),
@@ -254,7 +256,8 @@ function applyGameState(data) {
   renderTurnBanner();
 
   if (data.end_game_summary || data.endGameSummary) {
-    renderEndGameSummary(data.end_game_summary || data.endGameSummary);
+    state.endGameSummary = data.end_game_summary || data.endGameSummary;
+    renderEndGameSummary(state.endGameSummary);
   }
 }
 
@@ -693,7 +696,8 @@ async function endGame() {
   try {
     const data = await apiPost("/api/end-game", { unplayed_letters: unplayed });
     applyGameState(data.game_state || data);
-    renderEndGameSummary(data.endGameSummary);
+    state.endGameSummary = data.endGameSummary || data.end_game_summary || null;
+    renderEndGameSummary(state.endGameSummary);
     showNotification("Game over! See the Final Results panel for the full breakdown.", "notice");
   } catch (err) {
     showNotification(err.message);
@@ -708,6 +712,7 @@ function hideEndGameSummary() {
   el.endGamePanel.classList.add("hidden");
   el.endGameWinner.innerHTML = "";
   el.endGamePlayers.innerHTML = "";
+  state.endGameSummary = null;
 }
 
 function renderEndGameSummary(summary) {
@@ -770,6 +775,307 @@ function backToSetup() {
 }
 
 // ============================================================
+// Print / Save Box Score
+// ============================================================
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+// Builds a standalone, print-friendly HTML document showing the final
+// scores, every turn's scoring breakdown, and (if the game has ended)
+// the end-game deductions/bonuses. Opens it in a new window and
+// triggers the browser's print dialog (which is the native share
+// sheet on iPhone, offering Save as PDF / AirDrop / Print).
+function buildScorecardHtml() {
+  const dateStr = new Date().toLocaleDateString(undefined, {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  const sortedPlayers = [...state.players].sort((a, b) => (b.score || 0) - (a.score || 0));
+  const topScore = sortedPlayers.length ? sortedPlayers[0].score || 0 : null;
+
+  const scoresRows = sortedPlayers
+    .map((p) => {
+      const isWinner = p.score === topScore;
+      return `
+        <tr class="${isWinner ? "winner-row" : ""}">
+          <td>${escapeHtml(p.name)}${isWinner ? " &#9819;" : ""}</td>
+          <td class="num">${p.score ?? 0}</td>
+        </tr>`;
+    })
+    .join("");
+
+  // Running totals per player as we walk through turns, same idea as
+  // the on-screen box score.
+  const runningTotals = {};
+  state.players.forEach((p) => {
+    runningTotals[p.name] = 0;
+  });
+
+  const turnRows = state.history
+    .map((entry, index) => {
+      const turnNumber = index + 1;
+      const isSkip = entry.action === "skip" || !entry.word || entry.word === "(skipped)";
+      const breakdown = entry.scoreBreakdown || {};
+      runningTotals[entry.player] = (runningTotals[entry.player] || 0) + (entry.score ?? 0);
+
+      const extras = [];
+      if (!isSkip) {
+        (breakdown.crossWords || []).forEach((cw) => {
+          extras.push(`+${cw.score} cross word (${escapeHtml(cw.word)})`);
+        });
+        if (breakdown.bingoBonus) {
+          extras.push(`+${breakdown.bingoBonus} BINGO bonus`);
+        }
+      }
+
+      const wordCell = isSkip
+        ? `<span class="skipped">SKIPPED</span>`
+        : `<strong>${escapeHtml(entry.word)}</strong>`;
+
+      const mainScoreCell = isSkip ? "&mdash;" : (breakdown.mainWordScore ?? entry.score ?? 0);
+
+      return `
+        <tr>
+          <td class="num">${turnNumber}</td>
+          <td>${escapeHtml(entry.player)}</td>
+          <td>${wordCell}</td>
+          <td class="num">${mainScoreCell}</td>
+          <td class="extras">${extras.join("<br>") || "&nbsp;"}</td>
+          <td class="num total-cell">${entry.score ?? 0}</td>
+          <td class="num running-cell">${runningTotals[entry.player]}</td>
+        </tr>`;
+    })
+    .join("");
+
+  let endGameSection = "";
+  const summary = state.endGameSummary;
+  if (summary && summary.players) {
+    const endGameRows = Object.entries(summary.players)
+      .map(([name, info]) => {
+        const isWinner = name === summary.winner;
+        return `
+          <tr class="${isWinner ? "winner-row" : ""}">
+            <td>${escapeHtml(name)}${isWinner ? " &#9819;" : ""}</td>
+            <td class="num">${info.score_before}</td>
+            <td>${info.unplayed_letters ? escapeHtml(info.unplayed_letters) : "&mdash;"}</td>
+            <td class="num">-${info.deduction}</td>
+            <td class="num">${info.went_out_bonus ? "+" + info.went_out_bonus : "&mdash;"}</td>
+            <td class="num total-cell">${info.final_score}</td>
+          </tr>`;
+      })
+      .join("");
+
+    endGameSection = `
+      <section class="section">
+        <h2>Final Results${summary.winner ? ` &mdash; ${escapeHtml(summary.winner)} Wins` : ""}</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Player</th>
+              <th class="num">Score Before</th>
+              <th>Unplayed Letters</th>
+              <th class="num">Deduction</th>
+              <th class="num">Went-Out Bonus</th>
+              <th class="num">Final Score</th>
+            </tr>
+          </thead>
+          <tbody>${endGameRows}</tbody>
+        </table>
+      </section>`;
+  }
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Scrabble Score Card &mdash; ${escapeHtml(dateStr)}</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Courier New", "SF Mono", Menlo, monospace;
+    color: #1a1a1a;
+    background: #fff;
+    margin: 0;
+    padding: 32px;
+  }
+  .sheet {
+    max-width: 760px;
+    margin: 0 auto;
+  }
+  header {
+    text-align: center;
+    border-bottom: 3px double #1a1a1a;
+    padding-bottom: 14px;
+    margin-bottom: 22px;
+  }
+  header h1 {
+    margin: 0 0 4px;
+    font-size: 1.6rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  header .subtitle {
+    font-size: 0.9rem;
+    color: #444;
+  }
+  .section {
+    margin-bottom: 28px;
+    page-break-inside: avoid;
+  }
+  .section h2 {
+    font-size: 1.05rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid #999;
+    padding-bottom: 6px;
+    margin-bottom: 10px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 6px 8px;
+    border-bottom: 1px solid #ddd;
+    vertical-align: top;
+  }
+  th {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #555;
+    border-bottom: 2px solid #999;
+  }
+  td.num, th.num {
+    text-align: right;
+    white-space: nowrap;
+  }
+  .final-scores td {
+    font-size: 1.05rem;
+    padding: 8px;
+  }
+  .winner-row td {
+    font-weight: bold;
+    background: #f5f0e0;
+  }
+  .skipped {
+    font-style: italic;
+    color: #777;
+  }
+  .extras {
+    font-size: 0.76rem;
+    color: #555;
+  }
+  .total-cell {
+    font-weight: bold;
+  }
+  .running-cell {
+    color: #555;
+  }
+  footer {
+    margin-top: 24px;
+    text-align: center;
+    font-size: 0.72rem;
+    color: #888;
+    border-top: 1px solid #ddd;
+    padding-top: 10px;
+  }
+
+  @media print {
+    body { padding: 0.4in; }
+    @page { margin: 0.5in; }
+    .section { page-break-inside: avoid; }
+    header { page-break-after: avoid; }
+  }
+</style>
+</head>
+<body>
+  <div class="sheet">
+    <header>
+      <h1>Scrabble Score Card</h1>
+      <div class="subtitle">${escapeHtml(dateStr)}</div>
+    </header>
+
+    <section class="section">
+      <h2>Final Scores</h2>
+      <table class="final-scores">
+        <thead>
+          <tr><th>Player</th><th class="num">Score</th></tr>
+        </thead>
+        <tbody>${scoresRows}</tbody>
+      </table>
+    </section>
+
+    <section class="section">
+      <h2>Turn-by-Turn Breakdown</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Player</th>
+            <th>Word</th>
+            <th class="num">Word&nbsp;Score</th>
+            <th>Bonuses</th>
+            <th class="num">Turn&nbsp;Total</th>
+            <th class="num">Running&nbsp;Total</th>
+          </tr>
+        </thead>
+        <tbody>${turnRows || `<tr><td colspan="7" class="skipped">No turns played yet.</td></tr>`}</tbody>
+      </table>
+    </section>
+
+    ${endGameSection}
+
+    <footer>Scrabble Scorer &mdash; generated ${escapeHtml(new Date().toLocaleString())}</footer>
+  </div>
+</body>
+</html>`;
+}
+
+function printBoxScore() {
+  if (!state.players.length) {
+    showNotification("Start a game before printing a box score.");
+    return;
+  }
+
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) {
+    showNotification("Please allow pop-ups to print the box score.");
+    return;
+  }
+
+  const html = buildScorecardHtml();
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
+
+  printWindow.focus();
+
+  // Trigger the print dialog once the new window has laid out its
+  // content. Guarded so we never call print() twice (some browsers
+  // fire onload after document.write() completes, others don't).
+  let hasPrinted = false;
+  const triggerPrint = () => {
+    if (hasPrinted) return;
+    hasPrinted = true;
+    printWindow.print();
+  };
+  printWindow.onload = triggerPrint;
+  setTimeout(triggerPrint, 300);
+}
+
+// ============================================================
 // Wiring up event listeners
 // ============================================================
 
@@ -787,6 +1093,8 @@ el.skipTurnBtn.addEventListener("click", skipTurn);
 el.undoBtn.addEventListener("click", undoLastMove);
 el.endGameBtn.addEventListener("click", endGame);
 el.newGameBtn.addEventListener("click", backToSetup);
+
+el.printBoxScoreBtn.addEventListener("click", printBoxScore);
 
 // If a game is already in progress on the server (e.g. page refresh),
 // try loading it. Errors here are expected before any game exists,

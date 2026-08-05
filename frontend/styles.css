@@ -657,6 +657,13 @@ h1, h2, h3 {
 
 /* ---------------- History / Box Score panel ---------------- */
 
+.btn-print {
+  width: 100%;
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+  padding: 8px 12px;
+}
+
 .history-list {
   list-style: none;
   margin: 0;
@@ -780,16 +787,67 @@ h1, h2, h3 {
   .sidebar {
     flex: 1 1 auto;
   }
+
+  .board-area {
+    width: 100%;
+  }
 }
 
+/* Phone layout: board fills the viewport width, controls sit below it,
+   and every tappable element grows to a comfortable touch target. */
 @media (max-width: 700px) {
-  .board {
-    grid-template-columns: repeat(15, minmax(20px, 1fr));
-    grid-template-rows: repeat(15, minmax(20px, 1fr));
+  .screen {
+    padding: 10px;
+  }
+
+  .app-header {
+    padding: 14px 16px;
+  }
+
+  .app-header h1 {
+    font-size: 1.25rem;
+  }
+
+  .notification {
+    left: 10px;
+    right: 10px;
+    max-width: none;
+  }
+
+  .game-layout {
+    gap: 14px;
+  }
+
+  .board-area {
+    flex: 0 0 auto;
     width: 100%;
-    max-width: 480px;
-    padding: 4px;
+    gap: 8px;
+  }
+
+  .turn-banner {
+    width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+    font-size: 0.95rem;
+    padding: 10px 14px;
+  }
+
+  /* Board scales to the full width of the screen (minus the .screen
+     padding above) instead of the old fixed 40px cells, which made a
+     600px-wide board on a 375px phone. It stays inside the viewport,
+     but keeps an overflow-x escape hatch as a safety net. */
+  .board-area {
+    overflow-x: auto;
+  }
+
+  .board {
+    grid-template-columns: repeat(15, minmax(0, 1fr));
+    grid-template-rows: repeat(15, minmax(0, 1fr));
+    width: 100%;
+    max-width: 100%;
+    padding: 3px;
     gap: 1px;
+    border-radius: 6px;
   }
 
   .cell {
@@ -798,16 +856,117 @@ h1, h2, h3 {
     aspect-ratio: 1 / 1;
   }
 
+  .cell.selected-start {
+    outline-width: 2px;
+    outline-offset: -2px;
+  }
+
   .tile {
-    width: 90%;
-    height: 90%;
+    width: 88%;
+    height: 88%;
+    border-radius: 3px;
   }
 
   .tile .tile-letter {
-    font-size: 0.85rem;
+    font-size: clamp(0.72rem, 3.8vw, 1.05rem);
   }
 
+  .tile .tile-points {
+    font-size: 0.42rem;
+    bottom: 1px;
+    right: 2px;
+  }
+
+  /* Premium-square labels (TW/DW/TL/DL/star) scale with the viewport so
+     they stay legible even as the cells themselves shrink. */
   .cell .premium-label {
-    font-size: 0.4rem;
+    font-size: clamp(0.42rem, 2.1vw, 0.58rem);
+  }
+
+  .cell .center-star {
+    font-size: clamp(0.75rem, 3.2vw, 1rem);
+  }
+
+  /* ---- Sidebar / controls ---- */
+
+  .sidebar {
+    gap: 12px;
+  }
+
+  .panel {
+    padding: 14px;
+    border-radius: 8px;
+  }
+
+  .panel h3 {
+    font-size: 1rem;
+  }
+
+  .control-row {
+    flex-wrap: wrap;
+  }
+
+  .buttons-row {
+    flex-wrap: wrap;
+  }
+
+  .buttons-row .btn {
+    flex: 1 1 auto;
+  }
+
+  /* Buttons, inputs and chips all grow to Apple's 44px minimum
+     touch-target guideline. */
+  .btn {
+    min-height: 44px;
+    padding: 10px 14px;
+    font-size: 0.95rem;
+  }
+
+  .btn-toggle {
+    min-height: 44px;
+  }
+
+  .letter-chip {
+    min-width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+
+  #word-input {
+    font-size: 16px; /* prevents iOS Safari from auto-zooming on focus */
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+
+  .history-list {
+    max-height: 320px;
+  }
+
+  /* ---- Setup screen ---- */
+
+  .setup-card {
+    max-width: 100%;
+    margin: 12px auto;
+    padding: 20px 16px;
+  }
+
+  .player-name-input {
+    font-size: 16px; /* prevents iOS Safari from auto-zooming on focus */
+    min-height: 44px;
+    padding: 12px;
+  }
+
+  .setup-buttons {
+    flex-wrap: wrap;
+  }
+
+  .setup-buttons .btn {
+    flex: 1 1 auto;
+    min-height: 44px;
+  }
+
+  .btn-large {
+    min-height: 52px;
+    font-size: 1.1rem;
   }
 }
