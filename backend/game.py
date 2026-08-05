@@ -29,6 +29,7 @@ class ScrabbleGame:
         self.turn_number: int = 0
         self.game_over: bool = False
         self.final_scores: Optional[Dict[str, int]] = None
+        self.end_game_summary: Optional[Dict] = None
 
     # ------------------------------------------------------------------
     @property
@@ -153,21 +154,39 @@ class ScrabbleGame:
         return last
 
     # ------------------------------------------------------------------
-    def end_game(self, unplayed_letters: Optional[Dict[str, str]] = None) -> Dict[str, int]:
+    def end_game(self, unplayed_letters: Optional[Dict[str, str]] = None) -> Dict:
         """
         Compute final scores: each player loses the sum of their unplayed
-        tile values. If a player went out (empty rack), standard Scrabble
-        rules would award them the sum of everyone else's unplayed tiles,
-        but that requires knowing who went out; callers may pass an empty
-        string for players with no unplayed letters.
+        tile values. If exactly one player went out (empty rack), standard
+        Scrabble rules award them the sum of everyone else's unplayed
+        tiles; callers should pass an empty string for players with no
+        unplayed letters.
+
+        Returns a detailed breakdown dict:
+            {
+                "players": {
+                    <name>: {
+                        "score_before": int,
+                        "unplayed_letters": str,
+                        "deduction": int,
+                        "went_out_bonus": int,
+                        "final_score": int,
+                    },
+                    ...
+                },
+                "winner": <name or None>,
+            }
         """
         unplayed_letters = unplayed_letters or {}
+        scores_before = dict(self.scores)
         final_scores = dict(self.scores)
 
         total_deducted = 0
         deductions = {}
+        letters_by_player = {}
         for player in self.players:
             letters = unplayed_letters.get(player, "")
+            letters_by_player[player] = letters
             deduction = sum(letter_value(ch) for ch in letters if ch.strip())
             deductions[player] = deduction
             total_deducted += deduction
@@ -175,19 +194,39 @@ class ScrabbleGame:
 
         # If exactly one player has no unplayed letters (went out), award
         # them the total deducted from everyone else.
-        players_with_letters = [p for p, l in unplayed_letters.items() if l.strip()]
         went_out_candidates = [
             p for p in self.players if not unplayed_letters.get(p, "").strip()
         ]
+        went_out_bonuses = {p: 0 for p in self.players}
         if len(went_out_candidates) == 1 and total_deducted > 0:
-            winner = went_out_candidates[0]
-            bonus = total_deducted - deductions.get(winner, 0)
-            final_scores[winner] += bonus
+            winner_player = went_out_candidates[0]
+            bonus = total_deducted - deductions.get(winner_player, 0)
+            went_out_bonuses[winner_player] = bonus
+            final_scores[winner_player] += bonus
 
         self.final_scores = final_scores
         self.game_over = True
         self.scores = final_scores
-        return final_scores
+
+        players_breakdown = {}
+        for player in self.players:
+            players_breakdown[player] = {
+                "score_before": scores_before.get(player, 0),
+                "unplayed_letters": letters_by_player[player],
+                "deduction": deductions[player],
+                "went_out_bonus": went_out_bonuses[player],
+                "final_score": final_scores[player],
+            }
+
+        winner = None
+        if self.players:
+            winner = max(self.players, key=lambda p: final_scores.get(p, 0))
+
+        self.end_game_summary = {
+            "players": players_breakdown,
+            "winner": winner,
+        }
+        return self.end_game_summary
 
     # ------------------------------------------------------------------
     def _serialize_board(self):
@@ -238,4 +277,5 @@ class ScrabbleGame:
             "turn_number": self.turn_number,
             "game_over": self.game_over,
             "final_scores": self.final_scores,
+            "end_game_summary": self.end_game_summary,
         }

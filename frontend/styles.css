@@ -365,6 +365,87 @@ h1, h2, h3 {
   opacity: 0.85;
 }
 
+/* ---------------- End-game summary ---------------- */
+
+.end-game-panel {
+  background: linear-gradient(135deg, #FFF7E0, #FDECC8);
+  border: 2px solid #F0CB63;
+  box-shadow: 0 4px 16px rgba(180, 130, 0, 0.18);
+}
+
+.end-game-panel h3 {
+  color: #7a5100;
+}
+
+.end-game-winner {
+  font-family: var(--font-main);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #7a5100;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.end-game-winner .winner-name {
+  color: #B71C1C;
+}
+
+.end-game-players {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.end-game-player-card {
+  background: #FFFFFF;
+  border: 1px solid #E7DBB0;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.end-game-player-card.is-winner {
+  border: 2px solid #F0CB63;
+  background: #FFFBEF;
+}
+
+.egp-name {
+  font-family: var(--font-main);
+  font-weight: 700;
+  font-size: 1.05rem;
+  margin-bottom: 6px;
+  color: var(--color-text);
+}
+
+.egp-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.86rem;
+  color: var(--color-muted);
+  padding: 2px 0;
+}
+
+.egp-row span:last-child {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.egp-row.egp-bonus span:last-child {
+  color: #2E7D32;
+}
+
+.egp-row.egp-final {
+  border-top: 1px solid var(--color-panel-border);
+  margin-top: 4px;
+  padding-top: 6px;
+  font-size: 1rem;
+}
+
+.egp-row.egp-final span:last-child {
+  color: var(--color-accent-dark);
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
 /* ---------------- Scoreboard ---------------- */
 
 .scoreboard-list {

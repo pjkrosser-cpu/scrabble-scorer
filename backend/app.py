@@ -148,8 +148,10 @@ def end_game(req: EndGameRequest):
     if GAME is None:
         return JSONResponse(status_code=404, content={"error": "No game in progress"})
     letters = req.unplayed_letters or req.unplayed or {}
-    GAME.end_game(unplayed_letters=letters)
-    return GAME.to_dict()
+    summary = GAME.end_game(unplayed_letters=letters)
+    game_dict = GAME.to_dict()
+    game_dict["endGameSummary"] = summary
+    return game_dict
 
 
 @app.get("/api/validate-word/{word}")

@@ -89,6 +89,10 @@ const el = {
   newGameBtn: document.getElementById("new-game-btn"),
 
   historyList: document.getElementById("history-list"),
+
+  endGamePanel: document.getElementById("end-game-panel"),
+  endGameWinner: document.getElementById("end-game-winner"),
+  endGamePlayers: document.getElementById("end-game-players"),
 };
 
 // ============================================================
@@ -184,6 +188,7 @@ async function startGame() {
   try {
     const data = await apiPost("/api/new-game", { players: names });
     applyGameState(data);
+    hideEndGameSummary();
     state.gameStarted = true;
     el.setupScreen.classList.add("hidden");
     el.gameScreen.classList.remove("hidden");
@@ -219,6 +224,10 @@ function applyGameState(data) {
   renderBoard();
   renderHistory();
   renderTurnBanner();
+
+  if (data.end_game_summary || data.endGameSummary) {
+    renderEndGameSummary(data.end_game_summary || data.endGameSummary);
+  }
 }
 
 // ============================================================
@@ -599,10 +608,59 @@ async function endGame() {
   try {
     const data = await apiPost("/api/end-game", { unplayed_letters: unplayed });
     applyGameState(data.game_state || data);
-    showNotification("Game over! Final scores are shown on the scoreboard.", "notice");
+    renderEndGameSummary(data.endGameSummary);
+    showNotification("Game over! See the Final Results panel for the full breakdown.", "notice");
   } catch (err) {
     showNotification(err.message);
   }
+}
+
+// ============================================================
+// End-game summary rendering
+// ============================================================
+
+function hideEndGameSummary() {
+  el.endGamePanel.classList.add("hidden");
+  el.endGameWinner.innerHTML = "";
+  el.endGamePlayers.innerHTML = "";
+}
+
+function renderEndGameSummary(summary) {
+  if (!summary || !summary.players) {
+    hideEndGameSummary();
+    return;
+  }
+
+  el.endGameWinner.innerHTML = summary.winner
+    ? `🏆 <span class="winner-name">${summary.winner}</span> wins!`
+    : "";
+
+  el.endGamePlayers.innerHTML = "";
+
+  Object.entries(summary.players).forEach(([name, info]) => {
+    const card = document.createElement("div");
+    card.className = "end-game-player-card";
+    if (name === summary.winner) {
+      card.classList.add("is-winner");
+    }
+
+    const lines = [];
+    lines.push(`<div class="egp-name">${name}</div>`);
+    lines.push(`<div class="egp-row"><span>Score before deductions</span><span>${info.score_before}</span></div>`);
+    lines.push(
+      `<div class="egp-row"><span>Unplayed letters</span><span>${info.unplayed_letters ? info.unplayed_letters : "(none)"}</span></div>`
+    );
+    lines.push(`<div class="egp-row"><span>Deduction</span><span>-${info.deduction}</span></div>`);
+    if (info.went_out_bonus) {
+      lines.push(`<div class="egp-row egp-bonus"><span>Went-out bonus</span><span>+${info.went_out_bonus}</span></div>`);
+    }
+    lines.push(`<div class="egp-row egp-final"><span>Final score</span><span>${info.final_score}</span></div>`);
+
+    card.innerHTML = lines.join("");
+    el.endGamePlayers.appendChild(card);
+  });
+
+  el.endGamePanel.classList.remove("hidden");
 }
 
 function backToSetup() {
@@ -612,6 +670,7 @@ function backToSetup() {
   state.board = null;
   state.history = [];
   clearSelection();
+  hideEndGameSummary();
 
   el.gameScreen.classList.add("hidden");
   el.setupScreen.classList.remove("hidden");
