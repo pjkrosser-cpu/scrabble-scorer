@@ -82,6 +82,7 @@ const el = {
   clearSelectionBtn: document.getElementById("clear-selection-btn"),
   scoreBreakdown: document.getElementById("score-breakdown"),
   invalidWordActions: document.getElementById("invalid-word-actions"),
+  invalidWordText: document.getElementById("invalid-word-text"),
   overrideWordBtn: document.getElementById("override-word-btn"),
 
   skipTurnBtn: document.getElementById("skip-turn-btn"),
@@ -599,7 +600,8 @@ async function playWord(overrideDictionary = false) {
     // offer the override option instead of just showing an error.
     if (err.data && err.data.invalidWord) {
       state.lastInvalidWord = word;
-      showInvalidWordActions();
+      const message = (err.data && err.data.error) || err.message;
+      showInvalidWordActions(message);
     } else {
       showNotification(err.message);
     }
@@ -637,12 +639,18 @@ function hideScoreBreakdown() {
   el.scoreBreakdown.innerHTML = "";
 }
 
-function showInvalidWordActions() {
+function showInvalidWordActions(message) {
+  if (el.invalidWordText) {
+    el.invalidWordText.textContent = message || "That word wasn't found in the dictionary.";
+  }
   el.invalidWordActions.classList.remove("hidden");
 }
 
 function hideInvalidWordActions() {
   el.invalidWordActions.classList.add("hidden");
+  if (el.invalidWordText) {
+    el.invalidWordText.textContent = "";
+  }
   state.lastInvalidWord = null;
 }
 
@@ -762,6 +770,12 @@ function renderEndGameSummary(summary) {
 
   el.endGamePanel.classList.remove("hidden");
   el.controlsPanel.classList.add("hidden");
+
+  // The player may have scrolled down to reach the "End Game" button
+  // (it lives inside the controls panel, further down the sidebar).
+  // Without this, the panel renders above their current scroll
+  // position and can look like nothing happened except the toast.
+  el.endGamePanel.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function backToSetup() {
